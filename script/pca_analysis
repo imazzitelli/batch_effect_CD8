@@ -1,0 +1,35 @@
+library(DESeq2)
+library(sva)
+library(ggplot2)
+library(scales)
+
+# VST normalization
+dds <- DESeqDataSetFromMatrix(countData = counts_matrix, colData = metadata, design = ~1)
+dds <- dds[rowSums(counts(dds)) > 10, ]
+vsd <- vst(dds, blind = TRUE)
+
+# Batch correction
+combat_mat <- ComBat(dat = assay(vsd), batch = metadata$donor)
+
+# PCA
+pca <- prcomp(t(combat_mat), scale. = TRUE)
+pca_df <- as.data.frame(pca$x[, 1:2])
+pca_df$condition <- metadata[rownames(pca_df), "condition"]
+
+# Plot
+ggplot(pca_df, aes(x = PC1, y = PC2, fill = condition)) +
+  geom_point(size = 5, shape = 21, color = "black", stroke = 1.2) +
+  theme_minimal(base_size = 16) +
+  labs(
+    title = "PCA Sorted Populations + Breast Cancer Cells",
+    x = paste0("PC1 (", percent(summary(pca)$importance[2,1]), " var)"),
+    y = paste0("PC2 (", percent(summary(pca)$importance[2,2]), " var)"),
+    fill = "Condition"
+  ) +
+  scale_fill_manual(values = c(
+    "CD8_6.5" = "#D55E00",
+    "CD8_7.3" = "#F0E442",
+    "CD8CD103_6.5" = "#009E73",
+    "CD8_TILS" = "#56B4E9",
+    "CD8_TILS_CD103+" = "#CC79A7"
+  ))
